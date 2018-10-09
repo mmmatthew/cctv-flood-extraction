@@ -1,6 +1,7 @@
 import glob
 import os
 import re
+from datetime import datetime
 
 import cv2
 import matplotlib.pyplot as plt
@@ -79,6 +80,23 @@ class CCTVFloodExtraction(object):
             number = name.split('_')[-1]
             level.append(float(number))
         return np.array(level)
+
+    def extract_level_and_date_from_name(self):
+        """ for FloodX experiments the level can be extracted directly on the filename
+
+        """
+        images = glob.glob(os.path.join(self.frame_dir, '*'))
+        level = []
+        dates = []
+        for i, im in enumerate(images):
+            base, tail = os.path.split(im)
+            name = tail.split('.')[-2]
+            number = name.split('_')[-1]
+            date = name.split('_')[-3]
+            time = name.split('_')[-2]
+            dates.append(datetime.strptime(date+'_'+time, '%y%m%d_%H%M%S').strftime('%d/%m/%Y %H:%M:%S'))
+            level.append(float(number))
+        return np.array(level), np.array(dates)
 
     def import_video(self, url):
         """ import video from youtube url. Video must be of following formats: mp4 | flv | ogg | webm | mkv | avi
@@ -274,18 +292,21 @@ class CCTVFloodExtraction(object):
             predictions = [cv2.imread(os.path.join(self.pred_dir, file)) for file in f_names]
 
         # iterate over each predicted frame, crop image and calculate flood index
+        flood_index_crop = []
         flood_index = []
         for pred in predictions:
             pred_crop = pred[top:(top + height), left:(left + width)]
-            flood_index.append((pred_crop[:, :, 1] > threshold).sum() / (pred_crop.shape[0] * pred_crop.shape[1]))
+            flood_index_crop.append((pred_crop[:, :, 1] > threshold).sum() / (pred_crop.shape[0] * pred_crop.shape[1]))
+            flood_index.append((pred[:, :, 1] > threshold).sum() / (pred.shape[0] * pred.shape[1]))
 
-        return np.array(flood_index)
+        return np.array(flood_index), np.array(flood_index_crop)
 
-    def plot_sofi(self, flood_index, ref_path=None):
-        """ extract a flood index out of detected pixels in the frames
+    def plot_sofi(self, flood_index, flood_index_crop, ref_path=None):
+        """ plot sofi flood index and save data to csv file
 
             Args:
                 flood_index (ndarray): list of all extracted flood indexes (SOFI)
+                flood_index_crop (ndarray): list of all extracted flood indexes (SOFI)
                 ref_path (str): three possibilities: None if no reference data availabe, file_name if reference
                                 is extracted from file name or path where csv file is laying with two columns: nr, level.
         """
@@ -297,21 +318,23 @@ class CCTVFloodExtraction(object):
         plot_file_path = os.path.join(self.signal_dir, plot_name)
 
         # create dataframe for plotting and exporting to csv
-        df = pd.DataFrame({'extracted sofi': flood_index})
+        df = pd.DataFrame({'extracted sofi': flood_index, 'extracted sofi cropped': flood_index_crop})
 
         # if ref_path defined, then add reference values to dataframe and plot correlation
         if ref_path is not None:
             if ref_path == 'file_name':
-                val_ref = self.extract_level_from_name()
+                # val_ref = self.extract_level_from_name()
+                val_ref, dates_ref = self.extract_level_and_date_from_name()
                 df['reference level'] = val_ref
+                df['datetime'] = dates_ref
             else:
                 df_ref = pd.read_csv(ref_path, delimiter=';')
                 df_ref = df_ref.set_index('nr')
                 df_ref = df_ref.interpolate()
                 df['reference level'] = df_ref['level'].values
 
-            spe = df.corr(method='spearman').ix[0,1]
-            ax = df.plot(kind='scatter', x='reference level', y='extracted sofi')
+            spe = df.corr(method='spearman').ix[0, 1]
+            ax = df.plot(kind='scatter', x='reference level', y='extracted sofi', )
             ax.text(0.8, 0.1, 'spearman corr.: ' + str(round(spe, 2)), horizontalalignment='center',
                     verticalalignment='center', transform=ax.transAxes, bbox=dict(facecolor='grey', alpha=0.3))
             plt.savefig(plot_file_path + '_corr.png', bbox_inches='tight')
@@ -320,6 +343,12 @@ class CCTVFloodExtraction(object):
 
         # export flood_index to csv.
         df.to_csv(signal_file_path)
+        # df_renamed = df.rename(index=str, columns={"extracted sofi": "value"})
+        # df_renamed.to_csv(
+        #     signal_file_path + '_simple.csv',
+        #     sep=';',
+        #     columns=['datetime', 'value'],
+        #     index=False)
 
         # plot flood_index and store it.
         if 'reference level' in df.columns:
@@ -373,7 +402,7 @@ class CCTVFloodExtraction(object):
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
             # add roi rectangle to prediction
-            cv2.rectangle(pred, (left_roi, top_roi), (left_roi + w_roi, top_roi + h_roi), (0, 0, 255), 5)
+            cv2.rectangle(pred, (left_roi, top_roi), (left_roi + w_roi, top_roi + h_roi), (0, 0, 255), 2)
 
             # concatenate pictures togehter with black margins
             space_h = np.full((geometry['dim'], geometry['margin'], 3), 0).astype('uint8')
@@ -393,7 +422,7 @@ class CCTVFloodExtraction(object):
 
         return vid
 
-    def run(self, run_types, config, vid_batch=300, ref_path=None):
+    def run(self, run_types, config=None, vid_batch=300, ref_path=None):
         """ runs the extraction with the defined work_types in batches
 
             Args:
@@ -415,6 +444,7 @@ class CCTVFloodExtraction(object):
             all_img_paths.sort(key=lambda var: [int(x) if x.isdigit() else x for x in re.findall(r'[^0-9]|[0-9]+', var)])
             n_img = len(all_img_paths)
             trend = np.empty(n_img)
+            trend_crop = np.empty(n_img)
 
             trend_path = os.path.join(self.signal_dir, self.model_name + '__' + self.video_name + '__plot_ts.png')
 
@@ -428,10 +458,10 @@ class CCTVFloodExtraction(object):
                 batch = all_img_paths[b:b + vid_batch]
                 pred = self.predict_images(batch)
                 imgs = load_images(batch)
-                trend[b:b + vid_batch] = self.flood_extraction(predictions=pred)
+                trend[b:b + vid_batch], trend_crop[b:b + vid_batch] = self.flood_extraction(predictions=pred)
                 print('images predicted')
 
-                self.plot_sofi(trend, ref_path=ref_path)
+                self.plot_sofi(trend, trend_crop, ref_path=ref_path)
                 pred_tr = transform_to_human_mask(pred, imgs)
 
                 output_vid = self.write_image_to_vid(output_vid, pred_tr, imgs, trend_path, geometry, n_img, b)

@@ -4,7 +4,7 @@ from sofi_extraction.engine import CCTVFloodExtraction
 # for apple
 # file_base = '/Users/simonkramer/Documents/Polybox/4.Semester/Master_Thesis/03_ImageSegmentation/structure_vidFloodExt/'
 # for windows
-file_base = 'C:\\Users\\kramersi\\polybox\\4.Semester\\Master_Thesis\\03_ImageSegmentation\\structure_vidFloodExt\\'
+file_base = 'F:\\MOY_PhD_DATA_LOCAL\\2018_trend_analysis\\'
 
 video_file = os.path.join(file_base, 'videos', 'ChaskaAthleticPark.mp4')
 
@@ -26,8 +26,8 @@ videos = {
     'names': ['garden', 'garage', 'living_room', 'roll_stairs', 'creek_flood', 'lockwitz', 'spinerstrasse', 'hamburg', 'streetFlood', 'HarveyParking', 'BayouBridge'],
     'sec': [12*60+22, 19*60+39, 2*60+7, 55, 49, 12*60+5, 12, 14*60+3]
 }
+model_name = 'l5f16res_augmented'  #'ft_l5b3e200f16_dr075i2res_lr'  # 'ft_l5b3e200f16_dr075i2res_lr'
 
-model_name = 'ft_l5b3e200f16_dr075i2res_lr'
 config = [dict(
     video_url='https://youtu.be/nrGBtQhAvo8',
     video_file=os.path.join(file_base, 'videos', 'ChaskaAthleticPark.mp4'),
@@ -54,21 +54,19 @@ frames = {
     'model': ['train_test_l5_AthleticPark', 'train_test_l5_FloodXCam1', 'train_test_l5_HoustonGarage', 'train_test_l5',
               'train_test_l5', 'train_test_l5_HarveyParking', 'train_test_l5_BayouBridge', 'train_test_l5', 'train_test']
 }
-model_name = 'train_test_l5_aug_reduced'  #'ft_l5b3e200f16_dr075i2res_lr'  # 'ft_l5b3e200f16_dr075i2res_lr'
 model_file = os.path.join(file_base, 'models', model_name)
 
 for i, name in enumerate(frames['name']):
-    if i in [2]:  # [0, 1, 2, 3, 6, 7]
-        # trained_model = model_name + name
-        # model_file = os.path.join(file_base, 'models', trained_model)
-        pred_dir_flood = os.path.join(file_base, 'predictions', model_name)
-        frame_dir_flood = os.path.join(file_base, 'frames')
-        vid_dir_flood = os.path.join(pred_dir_flood, name + '_pred.avi')
-        ref_path = frames['ref'][i]
-        cr_win = dict(left=frames['roi'][i][0], top=frames['roi'][i][1], width=frames['roi'][i][2], height=frames['roi'][i][3])
-        cfe = CCTVFloodExtraction(video_file, model_file, pred_dir=pred_dir_flood, frame_dir=frame_dir_flood,
-                     video_name=name, crop_window=cr_win)
-        cfe.run(['extract_trend'], config, ref_path=ref_path)
+    trained_model = model_name + name
+    model_file = os.path.join(file_base, 'models', trained_model)
+    pred_dir_flood = os.path.join(file_base, 'predictions', model_name)
+    frame_dir_flood = os.path.join(file_base, 'frames')
+    vid_dir_flood = os.path.join(pred_dir_flood, name + '_pred.avi')
+    ref_path = frames['ref'][i]
+    cr_win = dict(left=frames['roi'][i][0], top=frames['roi'][i][1], width=frames['roi'][i][2], height=frames['roi'][i][3])
+    cfe = CCTVFloodExtraction(video_file, model_file, pred_dir=pred_dir_flood, frame_dir=frame_dir_flood,
+                 video_name=name, crop_window=cr_win)
+    cfe.run(['extract_trend'], config, ref_path=ref_path)
 
 
 # # iterate over movies
