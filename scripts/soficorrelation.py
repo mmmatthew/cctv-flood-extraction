@@ -38,8 +38,9 @@ frames = {
 }
 
 for i, name in enumerate(frames['name']):
-    if i in [0, 5]:
-        for model_name in [model_augmented, model_basic, frames['model'][i]]:
+    if i in [1, 2 ,3]:
+        # for model_name in [model_augmented, model_basic, frames['model'][i]]:
+        for model_name in [frames['model'][i]]:
             print('processing {} with model {}'.format(name, model_name))
             pred_dir_flood = os.path.join(file_base, 'predictions', frames['model'][i])
             frame_dir_flood = os.path.join(file_base, 'frames')

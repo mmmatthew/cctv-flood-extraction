@@ -99,7 +99,7 @@ class UNet(object):
 
     def train(self, model_dir, train_dir, valid_dir, epochs=20, batch_size=3, augmentation=True, normalisation=True, base_dir=None, trainable_index=14, save_aug=False, learning_rate=0.01):
         """ trains a unet instance on keras. With on-line data augmentation to diversify training samples in each batch.
-
+            trainable_index: operations  starting from end  are retrained. use "all" to train all layers
             example of defining paths
             train_dir = "E:\\watson_for_trend\\3_select_for_labelling\\train_cityscape\\"
             model_dir = "E:\\watson_for_trend\\5_train\\cityscape_l5f64c3n8e20\\"
@@ -117,8 +117,9 @@ class UNet(object):
         if base_dir is not None:
             self.model.load_weights(os.path.join(base_dir, 'model.h5'))
 
-            for layer in self.model.layers[:-trainable_index]:
-                layer.trainable = False
+            if trainable_index != 'all':
+                for layer in self.model.layers[:-trainable_index]:
+                    layer.trainable = False
 
             # Check the trainable status of the individual layers
             for layer in self.model.layers:
