@@ -120,6 +120,9 @@ class UNet(object):
             if trainable_index != 'all':
                 for layer in self.model.layers[:-trainable_index]:
                     layer.trainable = False
+            else:
+                for layer in self.model.layers:
+                    layer.trainable = True
 
             # Check the trainable status of the individual layers
             for layer in self.model.layers:

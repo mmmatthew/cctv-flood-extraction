@@ -9,7 +9,7 @@ from img_segmentation.model import UNet
 # for windows
 tune_vid = ''
 # path to project root
-file_base = 'E:\\phd_data\\2017_watsen'
+file_base = 'E:\\phd_data\\2017_watsen'  #
 #
 model_names = ['l5f16res_finetuned_FloodXCam1', 'l5f16res_finetuned_FloodXCam5', 'l5f16res_finetuned_HoustonGarage']
 camera_names = ['FloodXCam1', 'FloodXCam5', 'HoustonGarage']
@@ -25,7 +25,7 @@ res = [True, True, True]
 bd = [os.path.join(file_base, 'models', 'l5f16res_augmented'), os.path.join(file_base, 'models', 'l5f16res_augmented'), os.path.join(file_base, 'models', 'l5f16res_augmented')]
 
 for i, model_name in enumerate(model_names):
-    if i in [0,1,2]:
+    if i in [0, 1, 2]:
         model_dir = os.path.join(file_base, 'models', model_name)
 
         if not os.path.isdir(model_dir):
@@ -56,6 +56,7 @@ for i, model_name in enumerate(model_names):
                    trainable_index=14
                    )
         # now retrain model, using previous network as basis and retraining all weights
+        # model_dir_fine = os.path.join(file_base, 'models', model_name + '_final')
         unet.train(model_dir=model_dir, train_dir=[train_dir], valid_dir=[valid_dir],
                    batch_size=bat[i], epochs=ep[i],
                    augmentation=aug[i], base_dir=model_dir,
