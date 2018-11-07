@@ -1,3 +1,7 @@
+"""
+Script performs segmentation on video frames (pre-extracted) and computes SOFI index.
+A video of the segmentation and SOFI results is created as well.
+"""
 import os
 from sofi_extraction.engine import CCTVFloodExtraction
 
@@ -38,7 +42,7 @@ frames = {
 }
 
 for i, name in enumerate(frames['name']):
-    if i in [1, 2 ,3]:
+    if i in [2]:
         # for model_name in [model_augmented, model_basic, frames['model'][i]]:
         for model_name in [frames['model'][i]]:
             print('processing {} with model {}'.format(name, model_name))

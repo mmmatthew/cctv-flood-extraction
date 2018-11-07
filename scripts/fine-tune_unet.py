@@ -25,7 +25,7 @@ res = [True, True, True]
 bd = [os.path.join(file_base, 'models', 'l5f16res_augmented'), os.path.join(file_base, 'models', 'l5f16res_augmented'), os.path.join(file_base, 'models', 'l5f16res_augmented')]
 
 for i, model_name in enumerate(model_names):
-    if i in [0, 1, 2]:
+    if i in [2]:
         model_dir = os.path.join(file_base, 'models', model_name)
 
         if not os.path.isdir(model_dir):

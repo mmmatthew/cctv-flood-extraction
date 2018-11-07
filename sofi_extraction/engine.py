@@ -5,6 +5,7 @@ from datetime import datetime
 
 import cv2
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import numpy as np
 import pandas as pd
 from keras.models import load_model
@@ -13,6 +14,8 @@ from sofi_extraction.img_utils import resize_keep_aspect
 from img_segmentation.image_gen import ImageGenerator
 from img_segmentation.utils import load_images, f1_loss, transform_to_human_mask
 
+import seaborn as sns
+sns.set(style="darkgrid")
 
 class CCTVFloodExtraction(object):
     """ class which cares for all paths and containes methods for extracting SOFI out of videos
@@ -318,15 +321,16 @@ class CCTVFloodExtraction(object):
         plot_file_path = os.path.join(self.signal_dir, plot_name)
 
         # create dataframe for plotting and exporting to csv
-        df = pd.DataFrame({'extracted sofi': flood_index, 'extracted sofi cropped': flood_index_crop})
+        df = pd.DataFrame({'extracted sofi': flood_index})
 
         # if ref_path defined, then add reference values to dataframe and plot correlation
         if ref_path is not None:
             if ref_path == 'file_name':
                 # val_ref = self.extract_level_from_name()
                 val_ref, dates_ref = self.extract_level_and_date_from_name()
-                df['reference level'] = val_ref
-                df['datetime'] = dates_ref
+                data_length = len(df)
+                df['reference level'] = val_ref[:data_length]
+                df['datetime'] = [datetime.strptime(x, '%d/%m/%Y %H:%M:%S') for x in dates_ref[:data_length]]
             else:
                 df_ref = pd.read_csv(ref_path, delimiter=';')
                 df_ref = df_ref.set_index('nr')
@@ -334,9 +338,9 @@ class CCTVFloodExtraction(object):
                 df['reference level'] = df_ref['level'].values
 
             spe = df.corr(method='spearman').ix[0, 1]
-            ax = df.plot(kind='scatter', x='reference level', y='extracted sofi', )
-            ax.text(0.8, 0.1, 'spearman corr.: ' + str(round(spe, 2)), horizontalalignment='center',
-                    verticalalignment='center', transform=ax.transAxes, bbox=dict(facecolor='grey', alpha=0.3))
+            ax = df.plot(kind='scatter', x='reference level', y='extracted sofi', fontsize=8, figsize=(10, 5))
+            # ax.text(0.8, 0.1, 'spearman corr.: ' + str(round(spe, 2)), horizontalalignment='center',
+            #         verticalalignment='center', transform=ax.transAxes, bbox=dict(facecolor='grey', alpha=0.3))
             plt.savefig(plot_file_path + '_corr.png', bbox_inches='tight')
             plt.close()
             print('spearman_corr: ', spe)
@@ -352,13 +356,18 @@ class CCTVFloodExtraction(object):
 
         # plot flood_index and store it.
         if 'reference level' in df.columns:
-            ax1 = df.plot(figsize=(30, 10), secondary_y=['reference level'])
+            ax1 = df.plot(x='datetime', figsize=(10, 5), secondary_y=['reference level'], fontsize=12, ylim=(0, 1))
         else:
             ax1 = df.plot(figsize=(30, 10))
-        ax1.set_xlabel('index (#)')
-        ax1.set_ylabel('flood index (-)')
+        ax1.right_ax.set_ylim(0, 50)
+        ax1.format_xdata = mdates.DateFormatter('%H:%M:%S')
+        ax1.set_xlabel('time (#)')
+        ax1.set_ylabel('SOFI flood index')
+        ax1.right_ax.set_ylabel('water level (mm)')
+        vals = ax1.get_yticks()
+        ax1.set_yticklabels(['{:,.0%}'.format(x) for x in vals])
         # plt.show()
-        plt.savefig(plot_file_path + '_ts.png', bbox_inches='tight')
+        plt.savefig(plot_file_path + '_ts.png', bbox_inches='tight', dpi=300)
         plt.close()
         return df
 
@@ -402,9 +411,9 @@ class CCTVFloodExtraction(object):
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
             # add roi rectangle to prediction
-            cv2.rectangle(pred, (left_roi, top_roi), (left_roi + w_roi, top_roi + h_roi), (0, 0, 255), 2)
+            # cv2.rectangle(pred, (left_roi, top_roi), (left_roi + w_roi, top_roi + h_roi), (0, 0, 255), 2)
 
-            # concatenate pictures togehter with black margins
+            # concatenate pictures together with white margins
             space_h = np.full((geometry['dim'], geometry['margin'], 3), 0).astype('uint8')
             composition = np.concatenate((img, space_h, pred), axis=1)
 
@@ -414,15 +423,16 @@ class CCTVFloodExtraction(object):
             composition = np.concatenate((composition, space_w, trend), axis=0)
 
             # draw line on trend graph at position x
-            plot_margin = 25
-            line_x = plot_margin + int((geometry['w'] - plot_margin - 5) / n_img * (i + b_ini))
-            cv2.line(composition, (line_x, geometry['line_y1']), (line_x, geometry['line_y2']), (0, 0, 255), 5)
+            plot_margin_left = 98
+            plot_margin_right = 68
+            line_x = plot_margin_left + int((geometry['w'] - plot_margin_right -plot_margin_left - 2) / n_img * (i + b_ini))
+            cv2.line(composition, (line_x, geometry['line_y1']), (line_x, geometry['line_y2']), (0, 0, 255), 2)
 
             vid.write(composition.astype('uint8'))  # write to video instance
 
         return vid
 
-    def run(self, run_types, config=None, vid_batch=300, ref_path=None):
+    def run(self, run_types, config=None, vid_batch=2, ref_path=None, max_frames=None):
         """ runs the extraction with the defined work_types in batches
 
             Args:
@@ -436,12 +446,14 @@ class CCTVFloodExtraction(object):
             self.import_video(config['video_url'])
 
         if 'extract_frames' in run_types:
-            self.video2frame(resize_dims=512, keep_aspect=True, max_frames=1000)
+            self.video2frame(resize_dims=512, keep_aspect=True, max_frames=max_frames)
 
         if 'extract_trend' in run_types:
-            # create batches of 100 images and then predict and add to trend
+            # create batches of images and then predict and add to trend
             all_img_paths = glob.glob(os.path.join(self.frame_dir, '*'))
             all_img_paths.sort(key=lambda var: [int(x) if x.isdigit() else x for x in re.findall(r'[^0-9]|[0-9]+', var)])
+            if max_frames is not None:
+                all_img_paths = all_img_paths[:max_frames]
             n_img = len(all_img_paths)
             trend = np.empty(n_img)
             trend_crop = np.empty(n_img)
