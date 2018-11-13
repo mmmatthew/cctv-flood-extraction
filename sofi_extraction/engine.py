@@ -356,10 +356,10 @@ class CCTVFloodExtraction(object):
 
         # plot flood_index and store it.
         if 'reference level' in df.columns:
-            ax1 = df.plot(x='datetime', figsize=(10, 5), secondary_y=['reference level'], fontsize=12, ylim=(0, 1))
+            ax1 = df.plot(x='datetime', figsize=(10, 5), secondary_y=['reference level'], fontsize=12, ylim=(0, 0.6))
         else:
             ax1 = df.plot(figsize=(30, 10))
-        ax1.right_ax.set_ylim(0, 50)
+        ax1.right_ax.set_ylim(0, 300)
         ax1.format_xdata = mdates.DateFormatter('%H:%M:%S')
         ax1.set_xlabel('time (#)')
         ax1.set_ylabel('SOFI flood index')
@@ -413,7 +413,7 @@ class CCTVFloodExtraction(object):
             # add roi rectangle to prediction
             # cv2.rectangle(pred, (left_roi, top_roi), (left_roi + w_roi, top_roi + h_roi), (0, 0, 255), 2)
 
-            # concatenate pictures together with white margins
+            # concatenate pictures together with black margins
             space_h = np.full((geometry['dim'], geometry['margin'], 3), 0).astype('uint8')
             composition = np.concatenate((img, space_h, pred), axis=1)
 
@@ -423,8 +423,8 @@ class CCTVFloodExtraction(object):
             composition = np.concatenate((composition, space_w, trend), axis=0)
 
             # draw line on trend graph at position x
-            plot_margin_left = 98
-            plot_margin_right = 68
+            plot_margin_left = 87
+            plot_margin_right = 78
             line_x = plot_margin_left + int((geometry['w'] - plot_margin_right -plot_margin_left - 2) / n_img * (i + b_ini))
             cv2.line(composition, (line_x, geometry['line_y1']), (line_x, geometry['line_y2']), (0, 0, 255), 2)
 

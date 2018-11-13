@@ -56,4 +56,4 @@ for i, name in enumerate(frames['name']):
             cr_win = dict(left=frames['roi'][i][0], top=frames['roi'][i][1], width=frames['roi'][i][2], height=frames['roi'][i][3])
             cfe = CCTVFloodExtraction(video_file, model_file, pred_dir=pred_dir_flood, frame_dir=frame_dir_flood,
                                       video_name=name, crop_window=cr_win)
-            cfe.run(['extract_trend'], ref_path=ref_path)
+            cfe.run(['extract_trend'], ref_path=ref_path, max_frames=None)
